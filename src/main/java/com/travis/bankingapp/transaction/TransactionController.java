@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.travis.bankingapp.transaction.dto.CreateTransactionRequest;
+import com.travis.bankingapp.transaction.dto.TransferRequest;
+
 @RestController
 @RequestMapping("/api/transactions")
 public class TransactionController {
@@ -32,5 +35,10 @@ public class TransactionController {
     public List<Transaction> getTransactionsByAccount(@PathVariable Long accountId) {
       return transactionService.getTransactionsByAccount(accountId);
     }
-  
+ 
+  @PostMapping("/transfer")
+  public String transfer(@RequestBody TransferRequest request) {
+    transactionService.transfer(request);
+    return "Transfer completed successfully";
+  }
 }
