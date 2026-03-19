@@ -5,9 +5,11 @@ import java.math.BigDecimal;
 import com.travis.bankingapp.transaction.TransactionType;
 
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class CreateTransactionRequest {
 
   @NotNull

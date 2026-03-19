@@ -2,9 +2,11 @@ package com.travis.bankingapp.transaction.dto;
 
 import java.math.BigDecimal;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class TransferRequest {
 
   private String fromAccountNumber;
