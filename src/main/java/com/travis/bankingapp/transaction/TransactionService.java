@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.travis.bankingapp.account.Account;
 import com.travis.bankingapp.account.AccountRepository;
+import com.travis.bankingapp.auth.AuthServiceHelper;
 import com.travis.bankingapp.transaction.dto.TransferRequest;
 
 import jakarta.transaction.Transactional;
@@ -18,16 +19,30 @@ public class TransactionService {
 
   private final TransactionRepository transactionRepository;
   private final AccountRepository accountRepository;
+  private final AuthServiceHelper authServiceHelper;
 
-  public TransactionService(TransactionRepository transactionRepository, AccountRepository accountRepository) {
+  public TransactionService(TransactionRepository transactionRepository, AccountRepository accountRepository, AuthServiceHelper authServiceHelper) {
     this.transactionRepository = transactionRepository;
     this.accountRepository = accountRepository;
+    this.authServiceHelper = authServiceHelper;
   }
 
-  // creates a new transaction for an account
+  // ensures that the currently authenticated user owns the given account
+  private void validateCurrentUserOwnership(Account account) {
+    Long currentUserId = authServiceHelper.getCurrentUserId();
+
+    if (!account.getUser().getId().equals(currentUserId)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+    }
+  } 
+
+  // creates a new transaction for an account owned by the currently authenticated user
   @Transactional
-  public Transaction createTransaction(Long accountId, TransactionType type, BigDecimal amount, String description) {
-    Account account = accountRepository.findById(accountId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+  public Transaction createTransaction(String accountNumber, TransactionType type, BigDecimal amount, String description) {
+    Account account = accountRepository.findByAccountNumber(accountNumber).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+    // ensure the logged-in user owns this account
+    validateCurrentUserOwnership(account);
 
     // validate the amount is positive
     validateAmount(amount);
@@ -45,11 +60,14 @@ public class TransactionService {
     return transactionRepository.save(transaction);
   }
 
-  // retrieves all transactions associated with a specific account
-  public List<Transaction> getTransactionsByAccount(Long accountId) {
-    accountRepository.findById(accountId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+  // retrieves all transactions for an account owned by the currently authenticated user
+  public List<Transaction> getTransactionsByAccount(String accountNumber) {
+    Account account = accountRepository.findByAccountNumber(accountNumber).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
-    return transactionRepository.findByAccountId(accountId);
+    // ensure the logged-in user owns this account
+    validateCurrentUserOwnership(account);
+
+    return transactionRepository.findByAccountId(account.getId());
   }
 
   // validates that the transaction amount is greater than zero
@@ -89,6 +107,9 @@ public class TransactionService {
 
     // retrieve source (sender) account
     Account fromAccount = accountRepository.findByAccountNumber(request.getFromAccountNumber()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Source account not found"));
+
+    // ensure the logged-in user owns the source account
+    validateCurrentUserOwnership(fromAccount);
 
     // retrieve destination (receiver) account
     Account toAccount = accountRepository.findByAccountNumber(request.getToAccountNumber()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination account not found"));

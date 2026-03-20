@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.travis.bankingapp.transaction.dto.CreateTransactionRequest;
 import com.travis.bankingapp.transaction.dto.TransferRequest;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/transactions")
 public class TransactionController {
@@ -23,21 +25,21 @@ public class TransactionController {
   }
 
   @PostMapping
-  public Transaction createTransaction(@RequestBody CreateTransactionRequest request) {
+  public Transaction createTransaction(@Valid @RequestBody CreateTransactionRequest request) {
     return transactionService.createTransaction(
-      request.getAccountId(),
+      request.getAccountNumber(),
       request.getType(),
       request.getAmount(),
       request.getDescription());
   }
 
-  @GetMapping("account/{accountId}")
-    public List<Transaction> getTransactionsByAccount(@PathVariable Long accountId) {
-      return transactionService.getTransactionsByAccount(accountId);
+  @GetMapping("/account/{accountNumber}")
+    public List<Transaction> getTransactionsByAccount(@PathVariable String accountNumber) {
+      return transactionService.getTransactionsByAccount(accountNumber);
     }
  
   @PostMapping("/transfer")
-  public String transfer(@RequestBody TransferRequest request) {
+  public String transfer(@Valid @RequestBody TransferRequest request) {
     transactionService.transfer(request);
     return "Transfer completed successfully";
   }

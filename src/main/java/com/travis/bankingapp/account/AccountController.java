@@ -23,13 +23,13 @@ public class AccountController {
 
   @PostMapping
   public Account createAccount(@Valid @RequestBody CreateAccountRequest request) {
-    return accountService.createAccount(request.getUserId(), request.getType());
+    return accountService.createAccount(request.getType());
   }
 
   // get all accounts for a user
-  @GetMapping("/user/{userId}")
-  public List<Account> getAccountsByUser(@PathVariable Long userId) {
-    return accountService.getAccountsByUser(userId);
+  @GetMapping
+  public List<Account> getAccountsForCurrentUser() {
+    return accountService.getAccountsForCurrentUser();
   }
 
   // get one account by account number

@@ -9,8 +9,5 @@ import lombok.Setter;
 public class CreateAccountRequest {
 
   @NotNull
-  private Long userId;
-
-  @NotNull
   private AccountType type;
 }

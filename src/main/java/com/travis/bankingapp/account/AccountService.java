@@ -7,28 +7,28 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.travis.bankingapp.auth.AuthServiceHelper;
 import com.travis.bankingapp.user.User;
-import com.travis.bankingapp.user.UserRepository;
 
 @Service
 public class AccountService {
 
   private final AccountRepository accountRepository;
-  private final UserRepository userRepository;
+  private final AuthServiceHelper authServiceHelper;
 
-  public AccountService(AccountRepository accountRepository, UserRepository userRepository) {
+  public AccountService(AccountRepository accountRepository, AuthServiceHelper authServiceHelper) {
     this.accountRepository = accountRepository;
-    this.userRepository = userRepository;
+    this.authServiceHelper = authServiceHelper;
   }
 
-  public Account createAccount(Long userId, AccountType type) {
-    User user = userRepository.findById(userId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+  public Account createAccount(AccountType type) {
+    // get logged-in user from JWT authentication context
+    User currentUser = authServiceHelper.getCurrentUser();
 
     Account account = new Account(generateAccountNumber(), type, BigDecimal.ZERO);
 
-    // link account to found user
-    account.setUser(user);
+    // // link account to authenticated user
+    account.setUser(currentUser);
 
     return accountRepository.save(account);
   }
@@ -37,29 +37,21 @@ public class AccountService {
     return String.valueOf(System.currentTimeMillis());
   }
 
-  public List<Account> getAccountsByUser(Long userId) {
-    userRepository.findById(userId)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+  public List<Account> getAccountsForCurrentUser() {
+    Long userId = authServiceHelper.getCurrentUserId();
     
     return accountRepository.findByUserId(userId);
   }
 
+  // retrieves an account by account number only if it belongs to the currently authenticated user
   public Account getAccountByNumber(String accountNumber) {
-    return accountRepository.findByAccountNumber(accountNumber)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
-  }
+    Account account = accountRepository.findByAccountNumber(accountNumber).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
-  // verify that user owns the account
-  public void validateOwnership(Long userId, Account account) {
-    if (!account.getUser().getId().equals(userId)) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not own this account");
+    Long currentUserId = authServiceHelper.getCurrentUserId();
+
+    if (!account.getUser().getId().equals(currentUserId)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
     }
-  }
-
-  public Account getUserAccount(Long userId, String accountNumber) {
-    Account account = getAccountByNumber(accountNumber);
-
-    validateOwnership(userId, account);
 
     return account;
   }
