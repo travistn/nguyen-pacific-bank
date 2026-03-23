@@ -1,4 +1,6 @@
-package com.travis.bankingapp.account;
+package com.travis.bankingapp.account.dto;
+
+import com.travis.bankingapp.account.AccountType;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
