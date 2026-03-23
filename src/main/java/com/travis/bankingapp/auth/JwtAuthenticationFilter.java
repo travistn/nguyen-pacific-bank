@@ -36,18 +36,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       return;
     }
 
-    // get Authorization header from request
+    String jwt = null;
+
+    // try Authorization header first
     final String authHeader = request.getHeader("Authorization");
 
-    final String jwt;
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      // extract token by removing "Bearer " prefix
+      jwt = authHeader.substring(7);
+    }
 
-    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    // if no header token, try cookies
+    if (jwt == null && request.getCookies() != null) {
+      for (var cookie : request.getCookies()) {
+        if ("token".equals(cookie.getName())) {
+          jwt = cookie.getValue();
+          break;
+        }
+      }
+    }
+
+    // if still no token, continue without authentication
+    if (jwt == null) {
       filterChain.doFilter(request, response);
       return;
     }
-
-    // extract token by removing "Bearer " prefix
-    jwt = authHeader.substring(7);
 
     try {
       // extract email (username) from token payload
