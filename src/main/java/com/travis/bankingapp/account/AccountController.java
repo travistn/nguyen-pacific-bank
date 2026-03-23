@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.travis.bankingapp.account.dto.AccountResponse;
+import com.travis.bankingapp.account.dto.CreateAccountRequest;
+
 @RestController
 @RequestMapping("/api/accounts")
 public class AccountController {
@@ -22,19 +25,19 @@ public class AccountController {
   }
 
   @PostMapping
-  public Account createAccount(@Valid @RequestBody CreateAccountRequest request) {
+  public AccountResponse createAccount(@Valid @RequestBody CreateAccountRequest request) {
     return accountService.createAccount(request.getType());
   }
 
   // get all accounts for a user
   @GetMapping
-  public List<Account> getAccountsForCurrentUser() {
+  public List<AccountResponse> getAccountsForCurrentUser() {
     return accountService.getAccountsForCurrentUser();
   }
 
   // get one account by account number
   @GetMapping("/{accountNumber}")
-  public Account getAccountByNumber(@PathVariable String accountNumber) {
+  public AccountResponse getAccountByNumber(@PathVariable String accountNumber) {
     return accountService.getAccountByNumber(accountNumber);
   }
 }

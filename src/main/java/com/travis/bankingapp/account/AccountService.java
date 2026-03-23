@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.travis.bankingapp.account.dto.AccountResponse;
 import com.travis.bankingapp.auth.AuthServiceHelper;
 import com.travis.bankingapp.user.User;
 
@@ -21,30 +22,34 @@ public class AccountService {
     this.authServiceHelper = authServiceHelper;
   }
 
-  public Account createAccount(AccountType type) {
+  public AccountResponse createAccount(AccountType type) {
     // get logged-in user from JWT authentication context
     User currentUser = authServiceHelper.getCurrentUser();
-
     Account account = new Account(generateAccountNumber(), type, BigDecimal.ZERO);
 
     // // link account to authenticated user
     account.setUser(currentUser);
 
-    return accountRepository.save(account);
+    Account savedAccount = accountRepository.save(account);
+
+    return mapToAccountResponse(savedAccount);
   }
 
   private String generateAccountNumber() {
     return String.valueOf(System.currentTimeMillis());
   }
 
-  public List<Account> getAccountsForCurrentUser() {
+  public List<AccountResponse> getAccountsForCurrentUser() {
     Long userId = authServiceHelper.getCurrentUserId();
     
-    return accountRepository.findByUserId(userId);
+    return accountRepository.findByUserId(userId)
+      .stream()
+      .map(this::mapToAccountResponse)
+      .toList();
   }
 
   // retrieves an account by account number only if it belongs to the currently authenticated user
-  public Account getAccountByNumber(String accountNumber) {
+  public AccountResponse getAccountByNumber(String accountNumber) {
     Account account = accountRepository.findByAccountNumber(accountNumber).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
     Long currentUserId = authServiceHelper.getCurrentUserId();
@@ -53,6 +58,10 @@ public class AccountService {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
     }
 
-    return account;
+    return mapToAccountResponse(account);
+  }
+
+  private AccountResponse mapToAccountResponse(Account account) {
+    return new AccountResponse(account.getId(), account.getAccountNumber(), account.getBalance(), account.getType());
   }
 }
