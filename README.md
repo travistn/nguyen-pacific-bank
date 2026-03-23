@@ -3,6 +3,11 @@
 A secure REST API for a banking application built with Spring Boot.  
 Supports user authentication, account management, deposits, withdrawals, transaction history, and account transfers.
 
+## Full Stack Application
+
+- 🔧 Backend API (this repo)
+- 🌐 Frontend Web App: [Nguyen Pacific Bank Frontend](https://github.com/travistn/nguyen-pacific-bank-frontend)
+
 ## Features
 
 - User registration and login with JWT authentication
