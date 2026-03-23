@@ -9,6 +9,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,12 +29,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   // checks for JWT in Authorization header then authenticates user
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-    
+    String requestPath = request.getServletPath();
+
+    if (requestPath.startsWith("/api/auth/")) {
+      filterChain.doFilter(request, response);
+      return;
+    }
+
     // get Authorization header from request
     final String authHeader = request.getHeader("Authorization");
 
     final String jwt;
-    final String email;
 
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
       filterChain.doFilter(request, response);
@@ -43,28 +49,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     // extract token by removing "Bearer " prefix
     jwt = authHeader.substring(7);
 
-    // extract email (username) from token payload
-    email = jwtService.extractEmail(jwt);
+    try {
+      // extract email (username) from token payload
+      String email = jwtService.extractEmail(jwt);
 
-    // if email exists AND user is not already authenticated
-    if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+      // if email exists AND user is not already authenticated
+      if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-      // Load user details from database
-      UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
+        // Load user details from database
+        UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
 
-      // validate token and confirm it belongs to user
-      if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+        // validate token and confirm it belongs to user
+        if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
 
-        // create an authentication token for Spring Security
-        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+          // create an authentication token for Spring Security
+          UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
-        // attach request-specific details (IP address, session info, etc)
-        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+          // attach request-specific details (IP address, session info, etc)
+          authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-        // store authentication in SecurityContext
-        // this tells SpringSecurity that user is now authenticated
-        SecurityContextHolder.getContext().setAuthentication(authToken);
+          // store authentication in SecurityContext
+          // this tells SpringSecurity that user is now authenticated
+          SecurityContextHolder.getContext().setAuthentication(authToken);
+        }
       }
+    } catch (JwtException | IllegalArgumentException ex) {
+      SecurityContextHolder.clearContext();
     }
 
     // continue processing the rest of the filter chain
