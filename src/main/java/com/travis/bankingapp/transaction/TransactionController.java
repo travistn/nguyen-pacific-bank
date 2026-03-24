@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.travis.bankingapp.transaction.dto.CreateTransactionRequest;
+import com.travis.bankingapp.transaction.dto.TransactionResponse;
 import com.travis.bankingapp.transaction.dto.TransferRequest;
 
 import jakarta.validation.Valid;
@@ -24,8 +25,13 @@ public class TransactionController {
     this.transactionService = transactionService;
   }
 
+  @GetMapping
+  public List<TransactionResponse> getRecentTransactionsForCurrentUser() {
+    return transactionService.getRecentTransactionsForCurrentUser();
+  }
+
   @PostMapping
-  public Transaction createTransaction(@Valid @RequestBody CreateTransactionRequest request) {
+  public TransactionResponse createTransaction(@Valid @RequestBody CreateTransactionRequest request) {
     return transactionService.createTransaction(
       request.getAccountNumber(),
       request.getType(),
@@ -34,7 +40,7 @@ public class TransactionController {
   }
 
   @GetMapping("/account/{accountNumber}")
-    public List<Transaction> getTransactionsByAccount(@PathVariable String accountNumber) {
+    public List<TransactionResponse> getTransactionsByAccount(@PathVariable String accountNumber) {
       return transactionService.getTransactionsByAccount(accountNumber);
     }
  

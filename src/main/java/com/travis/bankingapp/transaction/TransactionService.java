@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.travis.bankingapp.account.Account;
 import com.travis.bankingapp.account.AccountRepository;
 import com.travis.bankingapp.auth.AuthServiceHelper;
+import com.travis.bankingapp.transaction.dto.TransactionResponse;
 import com.travis.bankingapp.transaction.dto.TransferRequest;
 
 import jakarta.transaction.Transactional;
@@ -36,9 +37,14 @@ public class TransactionService {
     }
   } 
 
+  // maps Transaction entity to TransactionResponse DTO
+  private TransactionResponse mapToTransactionResponse(Transaction transaction) {
+    return new TransactionResponse(transaction.getId(), transaction.getAmount(), transaction.getType(), transaction.getDescription(), transaction.getTransactionDate(), transaction.getAccount().getType());
+  }
+
   // creates a new transaction for an account owned by the currently authenticated user
   @Transactional
-  public Transaction createTransaction(String accountNumber, TransactionType type, BigDecimal amount, String description) {
+  public TransactionResponse createTransaction(String accountNumber, TransactionType type, BigDecimal amount, String description) {
     Account account = accountRepository.findByAccountNumber(accountNumber).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
     // ensure the logged-in user owns this account
@@ -56,19 +62,33 @@ public class TransactionService {
     Transaction transaction = new Transaction(type, amount, description, account);
 
     accountRepository.save(account);
+    Transaction savedTransaction = transactionRepository.save(transaction);
 
-    return transactionRepository.save(transaction);
+    return mapToTransactionResponse(savedTransaction);
   }
 
   // retrieves all transactions for an account owned by the currently authenticated user
-  public List<Transaction> getTransactionsByAccount(String accountNumber) {
+  public List<TransactionResponse> getTransactionsByAccount(String accountNumber) {
     Account account = accountRepository.findByAccountNumber(accountNumber).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
     // ensure the logged-in user owns this account
     validateCurrentUserOwnership(account);
 
-    return transactionRepository.findByAccountId(account.getId());
+    return transactionRepository.findByAccountId(account.getId())
+      .stream()
+      .map(this::mapToTransactionResponse)
+      .toList();
   }
+
+  public List<TransactionResponse> getRecentTransactionsForCurrentUser() {
+    Long currentUserId = authServiceHelper.getCurrentUserId();
+
+    return transactionRepository.findByAccountUserIdOrderByTransactionDateDesc(currentUserId)
+        .stream()
+        .limit(10)
+        .map(this::mapToTransactionResponse)
+        .toList();
+}
 
   // validates that the transaction amount is greater than zero
   private void validateAmount(BigDecimal amount) {
