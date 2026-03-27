@@ -10,6 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import com.travis.bankingapp.transaction.Transaction;
 import com.travis.bankingapp.user.User;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -54,7 +55,7 @@ public class Account {
   @Column(nullable = false, updatable = false)
   private OffsetDateTime createdAt;
 
-  @OneToMany(mappedBy = "account")
+  @OneToMany(mappedBy = "account", cascade = CascadeType.REMOVE, orphanRemoval = true)
   private List<Transaction> transactions = new ArrayList<>();
 
   public Account(String accountNumber, AccountType type, BigDecimal balance) {

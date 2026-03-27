@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.travis.bankingapp.account.Account;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -50,7 +51,7 @@ public class User implements UserDetails {
   private OffsetDateTime createdAt;
 
   @JsonIgnore
-  @OneToMany(mappedBy = "user")
+  @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
   private List<Account> accounts = new ArrayList<>();
 
   public User(Long id, String firstName, String lastName, String email, String password, OffsetDateTime createdAt) {
