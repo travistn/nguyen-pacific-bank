@@ -2,6 +2,7 @@ package com.travis.bankingapp.account;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,18 +26,23 @@ public class AccountService {
   public AccountResponse createAccount(AccountType type) {
     // get logged-in user from JWT authentication context
     User currentUser = authServiceHelper.getCurrentUser();
-    Account account = new Account(generateAccountNumber(), type, BigDecimal.ZERO);
-
-    // // link account to authenticated user
-    account.setUser(currentUser);
-
-    Account savedAccount = accountRepository.save(account);
+    Account savedAccount = createAccountForUser(currentUser, type);
 
     return mapToAccountResponse(savedAccount);
   }
 
+  public Account createAccountForUser(User user, AccountType type) {
+    Account account = new Account(generateAccountNumber(), type, BigDecimal.ZERO);
+    account.setUser(user);
+
+    return accountRepository.save(account);
+  }
+
   private String generateAccountNumber() {
-    return String.valueOf(System.currentTimeMillis());
+    long timestamp = System.currentTimeMillis();
+    int suffix = ThreadLocalRandom.current().nextInt(1000, 10000);
+
+    return timestamp + String.valueOf(suffix);
   }
 
   public List<AccountResponse> getAccountsForCurrentUser() {
