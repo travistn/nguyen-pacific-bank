@@ -50,6 +50,11 @@ public class TransactionService {
     // ensure the logged-in user owns this account
     validateCurrentUserOwnership(account);
 
+    return createTransactionForAccount(account, type, amount, description);
+  }
+
+  @Transactional
+  public TransactionResponse createTransactionForAccount(Account account, TransactionType type, BigDecimal amount, String description) {
     // validate the amount is positive
     validateAmount(amount);
 

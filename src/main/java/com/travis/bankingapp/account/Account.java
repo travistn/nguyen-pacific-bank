@@ -8,6 +8,7 @@ import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.travis.bankingapp.transaction.Transaction;
+import com.travis.bankingapp.recurringtransaction.RecurringTransaction;
 import com.travis.bankingapp.user.User;
 
 import jakarta.persistence.CascadeType;
@@ -57,6 +58,9 @@ public class Account {
 
   @OneToMany(mappedBy = "account", cascade = CascadeType.REMOVE, orphanRemoval = true)
   private List<Transaction> transactions = new ArrayList<>();
+
+  @OneToMany(mappedBy = "account", cascade = CascadeType.REMOVE, orphanRemoval = true)
+  private List<RecurringTransaction> recurringTransactions = new ArrayList<>();
 
   public Account(String accountNumber, AccountType type, BigDecimal balance) {
     this.accountNumber = accountNumber;
