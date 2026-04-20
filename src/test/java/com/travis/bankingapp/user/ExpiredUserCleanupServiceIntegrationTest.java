@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.travis.bankingapp.account.Account;
 import com.travis.bankingapp.account.AccountRepository;
@@ -37,6 +38,9 @@ class ExpiredUserCleanupServiceIntegrationTest {
 
   @Autowired
   private EntityManager entityManager;
+
+  @Autowired
+  private TransactionTemplate transactionTemplate;
 
   @BeforeEach
   void setUp() {
@@ -119,9 +123,11 @@ class ExpiredUserCleanupServiceIntegrationTest {
       createTransaction(savings, "Initial savings deposit");
     }
 
-    entityManager.flush();
-    updateUserCreatedAt(savedUser.getId(), createdAt);
-    entityManager.clear();
+    transactionTemplate.executeWithoutResult(status -> {
+      entityManager.flush();
+      updateUserCreatedAt(savedUser.getId(), createdAt);
+      entityManager.clear();
+    });
 
     return userRepository.findById(savedUser.getId()).orElseThrow();
   }

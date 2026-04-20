@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.travis.bankingapp.account.Account;
+import com.travis.bankingapp.recurringtransaction.RecurringTransaction;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.CascadeType;
@@ -53,6 +54,10 @@ public class User implements UserDetails {
   @JsonIgnore
   @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
   private List<Account> accounts = new ArrayList<>();
+
+  @JsonIgnore
+  @OneToMany(mappedBy = "user", cascade = CascadeType.REMOVE, orphanRemoval = true)
+  private List<RecurringTransaction> recurringTransactions = new ArrayList<>();
 
   public User(Long id, String firstName, String lastName, String email, String password, OffsetDateTime createdAt) {
     this.id = id;
