@@ -6,10 +6,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.travis.bankingapp.account.dto.AccountResponse;
 import com.travis.bankingapp.auth.AuthServiceHelper;
+import com.travis.bankingapp.recurringtransaction.RecurringTransactionService;
 import com.travis.bankingapp.user.User;
 
 @Service
@@ -17,12 +19,19 @@ public class AccountService {
 
   private final AccountRepository accountRepository;
   private final AuthServiceHelper authServiceHelper;
+  private final RecurringTransactionService recurringTransactionService;
 
-  public AccountService(AccountRepository accountRepository, AuthServiceHelper authServiceHelper) {
+  public AccountService(
+    AccountRepository accountRepository,
+    AuthServiceHelper authServiceHelper,
+    RecurringTransactionService recurringTransactionService
+  ) {
     this.accountRepository = accountRepository;
     this.authServiceHelper = authServiceHelper;
+    this.recurringTransactionService = recurringTransactionService;
   }
 
+  @Transactional
   public AccountResponse createAccount(AccountType type) {
     // get logged-in user from JWT authentication context
     User currentUser = authServiceHelper.getCurrentUser();
@@ -31,11 +40,14 @@ public class AccountService {
     return mapToAccountResponse(savedAccount);
   }
 
+  @Transactional
   public Account createAccountForUser(User user, AccountType type) {
     Account account = new Account(generateAccountNumber(), type, BigDecimal.ZERO);
     account.setUser(user);
 
-    return accountRepository.save(account);
+    Account savedAccount = accountRepository.save(account);
+    recurringTransactionService.seedNetflixRecurringWithdrawal(user, savedAccount);
+    return savedAccount;
   }
 
   private String generateAccountNumber() {
