@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -22,6 +23,7 @@ import com.travis.bankingapp.account.Account;
 import com.travis.bankingapp.account.AccountRepository;
 import com.travis.bankingapp.account.AccountType;
 import com.travis.bankingapp.recurringtransaction.dto.RecurringTransactionResponse;
+import com.travis.bankingapp.recurringtransaction.dto.UpcomingRecurringTransactionResponse;
 import com.travis.bankingapp.transaction.Transaction;
 import com.travis.bankingapp.transaction.TransactionRepository;
 import com.travis.bankingapp.transaction.TransactionType;
@@ -128,6 +130,42 @@ class RecurringTransactionServiceIntegrationTest {
     recurringTransactionService.deleteRecurringNetflixWithdrawal();
 
     assertThat(recurringTransactionRepository.findByUserId(user.getId())).isEmpty();
+  }
+
+  @Test
+  void getUpcomingRecurringTransactionsReturnsComputedNextRunDate() {
+    User user = createUser("upcoming.recurring@example.com");
+    Account checking = createAccount(user, AccountType.CHECKING, BigDecimal.ZERO);
+    LocalDate today = LocalDate.now();
+    int dayOfMonth = today.getDayOfMonth() == 1 ? 2 : today.getDayOfMonth() - 1;
+    recurringTransactionRepository.save(new RecurringTransaction(
+      user,
+      checking,
+      "Netflix",
+      new BigDecimal("20.00"),
+      dayOfMonth,
+      OffsetDateTime.now()
+    ));
+    authenticate(user);
+
+    List<UpcomingRecurringTransactionResponse> response = recurringTransactionService.getUpcomingRecurringTransactions();
+
+    LocalDate expectedNextRunDate = today.withDayOfMonth(dayOfMonth).plusMonths(1);
+    assertThat(response).hasSize(1);
+    assertThat(response.getFirst().getName()).isEqualTo("Netflix");
+    assertThat(response.getFirst().getAmount()).isEqualByComparingTo("20.00");
+    assertThat(response.getFirst().getNextRunDate()).isEqualTo(expectedNextRunDate);
+    assertThat(response.getFirst().getAccountId()).isEqualTo(checking.getId());
+  }
+
+  @Test
+  void getUpcomingRecurringTransactionsReturnsEmptyListWhenNoneExist() {
+    User user = createUser("upcoming.empty@example.com");
+    authenticate(user);
+
+    List<UpcomingRecurringTransactionResponse> response = recurringTransactionService.getUpcomingRecurringTransactions();
+
+    assertThat(response).isEmpty();
   }
 
   @Test

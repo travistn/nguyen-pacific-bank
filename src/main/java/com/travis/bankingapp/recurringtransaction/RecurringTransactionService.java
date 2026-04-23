@@ -1,7 +1,9 @@
 package com.travis.bankingapp.recurringtransaction;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -14,6 +16,7 @@ import com.travis.bankingapp.account.AccountRepository;
 import com.travis.bankingapp.account.AccountType;
 import com.travis.bankingapp.auth.AuthServiceHelper;
 import com.travis.bankingapp.recurringtransaction.dto.RecurringTransactionResponse;
+import com.travis.bankingapp.recurringtransaction.dto.UpcomingRecurringTransactionResponse;
 import com.travis.bankingapp.transaction.TransactionService;
 import com.travis.bankingapp.transaction.TransactionType;
 import com.travis.bankingapp.user.User;
@@ -81,6 +84,18 @@ public class RecurringTransactionService {
       .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recurring Netflix withdrawal not found"));
 
     recurringTransactionRepository.delete(recurringTransaction);
+  }
+
+  public List<UpcomingRecurringTransactionResponse> getUpcomingRecurringTransactions() {
+    Long currentUserId = authServiceHelper.getCurrentUserId();
+    LocalDate today = LocalDate.now();
+
+    return recurringTransactionRepository.findAllByUserId(currentUserId)
+      .stream()
+      .filter(recurringTransaction -> recurringTransaction.getAccount() != null && recurringTransaction.getAccount().getId() != null)
+      .map(recurringTransaction -> mapToUpcomingResponse(recurringTransaction, today))
+      .sorted(Comparator.comparing(UpcomingRecurringTransactionResponse::getNextRunDate))
+      .toList();
   }
 
   public List<Long> getDueRecurringTransactionIds(OffsetDateTime now) {
@@ -153,6 +168,25 @@ public class RecurringTransactionService {
 
   private OffsetDateTime calculateNextRunAtAfter(OffsetDateTime currentNextRunAt) {
     return currentNextRunAt.plusMonths(1);
+  }
+
+  private UpcomingRecurringTransactionResponse mapToUpcomingResponse(RecurringTransaction recurringTransaction, LocalDate today) {
+    return new UpcomingRecurringTransactionResponse(
+      recurringTransaction.getDescription(),
+      recurringTransaction.getAmount(),
+      calculateNextRunDate(today, recurringTransaction.getDayOfMonth()),
+      recurringTransaction.getAccount().getId()
+    );
+  }
+
+  private LocalDate calculateNextRunDate(LocalDate today, int dayOfMonth) {
+    LocalDate nextRunDate = today.withDayOfMonth(dayOfMonth);
+
+    if (today.getDayOfMonth() > dayOfMonth) {
+      return nextRunDate.plusMonths(1);
+    }
+
+    return nextRunDate;
   }
 
   private RecurringTransactionResponse mapToResponse(RecurringTransaction recurringTransaction) {

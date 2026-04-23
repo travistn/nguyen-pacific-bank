@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,6 +81,24 @@ class RecurringTransactionControllerIntegrationTest {
   }
 
   @Test
+  void authenticatedGetUpcomingReturnsUpcomingRecurringTransactions() throws Exception {
+    User user = registerUser("controller.upcoming@example.com");
+    String token = jwtService.generateToken(user.getEmail());
+    LocalDate today = LocalDate.now();
+    LocalDate expectedNextRunDate = today.getDayOfMonth() <= 20
+      ? today.withDayOfMonth(20)
+      : today.withDayOfMonth(20).plusMonths(1);
+
+    mockMvc.perform(get("/api/recurring-transactions/upcoming")
+        .header("Authorization", "Bearer " + token))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$[0].name").value("Netflix"))
+      .andExpect(jsonPath("$[0].amount").value(20.00))
+      .andExpect(jsonPath("$[0].nextRunDate").value(expectedNextRunDate.toString()))
+      .andExpect(jsonPath("$[0].accountId").isNumber());
+  }
+
+  @Test
   void authenticatedDeleteRemovesRecurringTransaction() throws Exception {
     User user = registerUser("controller.delete@example.com");
     String token = jwtService.generateToken(user.getEmail());
@@ -96,6 +116,9 @@ class RecurringTransactionControllerIntegrationTest {
       .andExpect(status().isForbidden());
 
     mockMvc.perform(get("/api/recurring-transaction"))
+      .andExpect(status().isForbidden());
+
+    mockMvc.perform(get("/api/recurring-transactions/upcoming"))
       .andExpect(status().isForbidden());
 
     mockMvc.perform(delete("/api/recurring-transaction"))
