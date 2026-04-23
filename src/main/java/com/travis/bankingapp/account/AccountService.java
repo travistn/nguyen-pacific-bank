@@ -42,12 +42,19 @@ public class AccountService {
 
   @Transactional
   public Account createAccountForUser(User user, AccountType type) {
-    Account account = new Account(generateAccountNumber(), type, BigDecimal.ZERO);
+    Account account = new Account(generateAccountNumber(), type, initialBalanceFor(type));
     account.setUser(user);
 
     Account savedAccount = accountRepository.save(account);
     recurringTransactionService.seedNetflixRecurringWithdrawal(user, savedAccount);
     return savedAccount;
+  }
+
+  private BigDecimal initialBalanceFor(AccountType type) {
+    return switch (type) {
+      case CHECKING -> new BigDecimal("500.00");
+      case SAVINGS -> new BigDecimal("2000.00");
+    };
   }
 
   private String generateAccountNumber() {

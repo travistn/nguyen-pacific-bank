@@ -2,6 +2,8 @@ package com.travis.bankingapp.account;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.travis.bankingapp.account.dto.AccountResponse;
 import com.travis.bankingapp.recurringtransaction.RecurringTransaction;
 import com.travis.bankingapp.recurringtransaction.RecurringTransactionRepository;
 import com.travis.bankingapp.user.User;
@@ -48,7 +51,9 @@ class AccountServiceIntegrationTest {
     User user = createUser("account.seed@example.com");
     authenticate(user);
 
-    accountService.createAccount(AccountType.CHECKING);
+    AccountResponse account = accountService.createAccount(AccountType.CHECKING);
+
+    assertThat(account.getBalance()).isEqualByComparingTo("500.00");
 
     RecurringTransaction recurringTransaction = recurringTransactionRepository.findByUserId(user.getId()).orElseThrow();
     assertThat(recurringTransaction.getDescription()).isEqualTo("Netflix");
@@ -67,6 +72,16 @@ class AccountServiceIntegrationTest {
     accountService.createAccount(AccountType.CHECKING);
 
     assertThat(recurringTransactionRepository.count()).isEqualTo(1);
+  }
+
+  @Test
+  void createSavingsAccountUsesSeededBalance() {
+    User user = createUser("account.savings@example.com");
+    authenticate(user);
+
+    AccountResponse account = accountService.createAccount(AccountType.SAVINGS);
+
+    assertThat(account.getBalance()).isEqualByComparingTo(new BigDecimal("2000.00"));
   }
 
   private User createUser(String email) {
