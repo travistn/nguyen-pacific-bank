@@ -17,6 +17,8 @@ import com.travis.bankingapp.account.Account;
 import com.travis.bankingapp.account.AccountRepository;
 import com.travis.bankingapp.account.AccountType;
 import com.travis.bankingapp.auth.dto.RegisterRequest;
+import com.travis.bankingapp.recurringtransaction.RecurringTransaction;
+import com.travis.bankingapp.recurringtransaction.RecurringTransactionRepository;
 import com.travis.bankingapp.user.User;
 import com.travis.bankingapp.user.UserRepository;
 
@@ -32,8 +34,12 @@ class AuthServiceIntegrationTest {
   @Autowired
   private AccountRepository accountRepository;
 
+  @Autowired
+  private RecurringTransactionRepository recurringTransactionRepository;
+
   @BeforeEach
   void setUp() {
+    recurringTransactionRepository.deleteAll();
     accountRepository.deleteAll();
     userRepository.deleteAll();
   }
@@ -59,6 +65,12 @@ class AuthServiceIntegrationTest {
     assertThat(accounts)
       .extracting(account -> account.getUser().getId())
       .containsOnly(savedUser.getId());
+
+    RecurringTransaction recurringTransaction = recurringTransactionRepository.findByUserId(savedUser.getId()).orElseThrow();
+    assertThat(recurringTransaction.getDescription()).isEqualTo("Netflix");
+    assertThat(recurringTransaction.getAmount()).isEqualByComparingTo("20.00");
+    assertThat(recurringTransaction.getDayOfMonth()).isEqualTo(20);
+    assertThat(recurringTransaction.getAccount().getType()).isEqualTo(AccountType.CHECKING);
   }
 
   @Test
@@ -73,6 +85,7 @@ class AuthServiceIntegrationTest {
 
     assertThat(userRepository.count()).isEqualTo(1);
     assertThat(accountRepository.count()).isEqualTo(2);
+    assertThat(recurringTransactionRepository.count()).isEqualTo(1);
   }
 
   private RegisterRequest registerRequest(String email) {

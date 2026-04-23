@@ -45,22 +45,25 @@ public class RecurringTransactionService {
   @Transactional
   public RecurringTransactionResponse createRecurringNetflixWithdrawal() {
     User currentUser = authServiceHelper.getCurrentUser();
+    Account checkingAccount = findCheckingAccountForUser(currentUser.getId());
 
     if (recurringTransactionRepository.existsByUserId(currentUser.getId())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "Recurring Netflix withdrawal already exists");
     }
 
-    Account checkingAccount = findCheckingAccountForUser(currentUser.getId());
-    RecurringTransaction recurringTransaction = new RecurringTransaction(
-      currentUser,
-      checkingAccount,
-      NETFLIX_DESCRIPTION,
-      NETFLIX_AMOUNT,
-      NETFLIX_DAY_OF_MONTH,
-      calculateNextRunAt(OffsetDateTime.now())
-    );
+    RecurringTransaction recurringTransaction = buildNetflixRecurringTransaction(currentUser, checkingAccount, OffsetDateTime.now());
 
     return mapToResponse(recurringTransactionRepository.save(recurringTransaction));
+  }
+
+  @Transactional
+  public void seedNetflixRecurringWithdrawal(User user, Account account) {
+    if (!AccountType.CHECKING.equals(account.getType()) || recurringTransactionRepository.existsByUserId(user.getId())) {
+      return;
+    }
+
+    RecurringTransaction recurringTransaction = buildNetflixRecurringTransaction(user, account, OffsetDateTime.now());
+    recurringTransactionRepository.save(recurringTransaction);
   }
 
   public RecurringTransactionResponse getRecurringNetflixWithdrawal() {
@@ -121,6 +124,17 @@ public class RecurringTransactionService {
       .filter(account -> AccountType.CHECKING.equals(account.getType()))
       .findFirst()
       .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Checking account not found"));
+  }
+
+  private RecurringTransaction buildNetflixRecurringTransaction(User user, Account account, OffsetDateTime now) {
+    return new RecurringTransaction(
+      user,
+      account,
+      NETFLIX_DESCRIPTION,
+      NETFLIX_AMOUNT,
+      NETFLIX_DAY_OF_MONTH,
+      calculateNextRunAt(now)
+    );
   }
 
   private OffsetDateTime calculateNextRunAt(OffsetDateTime now) {

@@ -56,16 +56,12 @@ class RecurringTransactionControllerIntegrationTest {
   }
 
   @Test
-  void authenticatedPostCreatesRecurringTransaction() throws Exception {
+  void authenticatedPostRejectsDuplicateRecurringTransactionAfterSignupSeeding() throws Exception {
     User user = registerUser("controller.post@example.com");
 
     mockMvc.perform(post("/api/recurring-transaction")
         .header("Authorization", "Bearer " + jwtService.generateToken(user.getEmail())))
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.description").value("Netflix"))
-      .andExpect(jsonPath("$.amount").value(20.00))
-      .andExpect(jsonPath("$.dayOfMonth").value(20))
-      .andExpect(jsonPath("$.accountType").value("CHECKING"));
+      .andExpect(status().isConflict());
 
     assertThat(recurringTransactionRepository.findByUserId(user.getId())).isPresent();
   }
@@ -74,8 +70,6 @@ class RecurringTransactionControllerIntegrationTest {
   void authenticatedGetReturnsRecurringTransaction() throws Exception {
     User user = registerUser("controller.get@example.com");
     String token = jwtService.generateToken(user.getEmail());
-    mockMvc.perform(post("/api/recurring-transaction").header("Authorization", "Bearer " + token))
-      .andExpect(status().isOk());
 
     mockMvc.perform(get("/api/recurring-transaction")
         .header("Authorization", "Bearer " + token))
@@ -88,8 +82,6 @@ class RecurringTransactionControllerIntegrationTest {
   void authenticatedDeleteRemovesRecurringTransaction() throws Exception {
     User user = registerUser("controller.delete@example.com");
     String token = jwtService.generateToken(user.getEmail());
-    mockMvc.perform(post("/api/recurring-transaction").header("Authorization", "Bearer " + token))
-      .andExpect(status().isOk());
 
     mockMvc.perform(delete("/api/recurring-transaction")
         .header("Authorization", "Bearer " + token))
