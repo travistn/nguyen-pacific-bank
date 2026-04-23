@@ -61,7 +61,8 @@ class AuthServiceIntegrationTest {
       .extracting(Account::getType)
       .containsExactly(AccountType.CHECKING, AccountType.SAVINGS);
     assertThat(accounts)
-      .allSatisfy(account -> assertThat(account.getBalance()).isEqualByComparingTo(BigDecimal.ZERO));
+      .extracting(Account::getBalance)
+      .containsExactly(new BigDecimal("500.00"), new BigDecimal("2000.00"));
     assertThat(accounts)
       .extracting(account -> account.getUser().getId())
       .containsOnly(savedUser.getId());
