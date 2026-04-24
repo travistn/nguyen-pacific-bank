@@ -55,7 +55,7 @@ class AccountServiceIntegrationTest {
 
     assertThat(account.getBalance()).isEqualByComparingTo("500.00");
 
-    RecurringTransaction recurringTransaction = recurringTransactionRepository.findByUserId(user.getId()).orElseThrow();
+    RecurringTransaction recurringTransaction = recurringTransactionRepository.findAllByUserId(user.getId()).getFirst();
     assertThat(recurringTransaction.getDescription()).isEqualTo("Netflix");
     assertThat(recurringTransaction.getAmount()).isEqualByComparingTo("20.00");
     assertThat(recurringTransaction.getDayOfMonth()).isEqualTo(20);

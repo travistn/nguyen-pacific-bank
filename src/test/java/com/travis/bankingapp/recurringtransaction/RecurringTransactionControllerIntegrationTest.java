@@ -58,26 +58,44 @@ class RecurringTransactionControllerIntegrationTest {
   }
 
   @Test
-  void authenticatedPostRejectsDuplicateRecurringTransactionAfterSignupSeeding() throws Exception {
+  void authenticatedPostCreatesRecurringTransactionWithoutRemovingSeededNetflixTransaction() throws Exception {
     User user = registerUser("controller.post@example.com");
+    String token = jwtService.generateToken(user.getEmail());
+    Long accountId = accountRepository.findByUserId(user.getId()).stream()
+      .filter(account -> account.getType().name().equals("CHECKING"))
+      .findFirst()
+      .orElseThrow()
+      .getId();
 
     mockMvc.perform(post("/api/recurring-transaction")
-        .header("Authorization", "Bearer " + jwtService.generateToken(user.getEmail())))
-      .andExpect(status().isConflict());
+        .header("Authorization", "Bearer " + token)
+        .contentType("application/json")
+        .content("""
+          {
+            "accountId": %d,
+            "description": "Gym",
+            "amount": 45.00,
+            "dayOfMonth": 12
+          }
+          """.formatted(accountId)))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.description").value("Gym"))
+      .andExpect(jsonPath("$.amount").value(45.00))
+      .andExpect(jsonPath("$.dayOfMonth").value(12));
 
-    assertThat(recurringTransactionRepository.findByUserId(user.getId())).isPresent();
+    assertThat(recurringTransactionRepository.findAllByUserId(user.getId())).hasSize(2);
   }
 
   @Test
-  void authenticatedGetReturnsRecurringTransaction() throws Exception {
+  void authenticatedGetReturnsRecurringTransactions() throws Exception {
     User user = registerUser("controller.get@example.com");
     String token = jwtService.generateToken(user.getEmail());
 
     mockMvc.perform(get("/api/recurring-transaction")
         .header("Authorization", "Bearer " + token))
       .andExpect(status().isOk())
-      .andExpect(jsonPath("$.description").value("Netflix"))
-      .andExpect(jsonPath("$.amount").value(20.00));
+      .andExpect(jsonPath("$[0].description").value("Netflix"))
+      .andExpect(jsonPath("$[0].amount").value(20.00));
   }
 
   @Test
@@ -102,12 +120,13 @@ class RecurringTransactionControllerIntegrationTest {
   void authenticatedDeleteRemovesRecurringTransaction() throws Exception {
     User user = registerUser("controller.delete@example.com");
     String token = jwtService.generateToken(user.getEmail());
+    Long recurringTransactionId = recurringTransactionRepository.findAllByUserId(user.getId()).getFirst().getId();
 
-    mockMvc.perform(delete("/api/recurring-transaction")
+    mockMvc.perform(delete("/api/recurring-transaction/{recurringTransactionId}", recurringTransactionId)
         .header("Authorization", "Bearer " + token))
       .andExpect(status().isNoContent());
 
-    assertThat(recurringTransactionRepository.findByUserId(user.getId())).isEmpty();
+    assertThat(recurringTransactionRepository.findAllByUserId(user.getId())).isEmpty();
   }
 
   @Test
@@ -121,7 +140,7 @@ class RecurringTransactionControllerIntegrationTest {
     mockMvc.perform(get("/api/recurring-transactions/upcoming"))
       .andExpect(status().isForbidden());
 
-    mockMvc.perform(delete("/api/recurring-transaction"))
+    mockMvc.perform(delete("/api/recurring-transaction/1"))
       .andExpect(status().isForbidden());
   }
 

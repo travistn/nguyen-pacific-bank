@@ -15,6 +15,7 @@ import com.travis.bankingapp.account.Account;
 import com.travis.bankingapp.account.AccountRepository;
 import com.travis.bankingapp.account.AccountType;
 import com.travis.bankingapp.auth.AuthServiceHelper;
+import com.travis.bankingapp.recurringtransaction.dto.CreateRecurringTransactionRequest;
 import com.travis.bankingapp.recurringtransaction.dto.RecurringTransactionResponse;
 import com.travis.bankingapp.recurringtransaction.dto.UpcomingRecurringTransactionResponse;
 import com.travis.bankingapp.transaction.TransactionService;
@@ -46,42 +47,56 @@ public class RecurringTransactionService {
   }
 
   @Transactional
-  public RecurringTransactionResponse createRecurringNetflixWithdrawal() {
+  public RecurringTransactionResponse createRecurringTransaction(CreateRecurringTransactionRequest request) {
     User currentUser = authServiceHelper.getCurrentUser();
-    Account checkingAccount = findCheckingAccountForUser(currentUser.getId());
+    Account account = findAccountForUser(currentUser.getId(), request.getAccountId());
+    String description = request.getDescription().trim();
 
-    if (recurringTransactionRepository.existsByUserId(currentUser.getId())) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "Recurring Netflix withdrawal already exists");
-    }
-
-    RecurringTransaction recurringTransaction = buildNetflixRecurringTransaction(currentUser, checkingAccount, OffsetDateTime.now());
+    RecurringTransaction recurringTransaction = buildRecurringTransaction(
+      currentUser,
+      account,
+      description,
+      request.getAmount(),
+      request.getDayOfMonth(),
+      OffsetDateTime.now()
+    );
 
     return mapToResponse(recurringTransactionRepository.save(recurringTransaction));
   }
 
   @Transactional
   public void seedNetflixRecurringWithdrawal(User user, Account account) {
-    if (!AccountType.CHECKING.equals(account.getType()) || recurringTransactionRepository.existsByUserId(user.getId())) {
+    if (!AccountType.CHECKING.equals(account.getType())
+      || recurringTransactionRepository.existsByUserIdAndDescriptionIgnoreCase(user.getId(), NETFLIX_DESCRIPTION)) {
       return;
     }
 
-    RecurringTransaction recurringTransaction = buildNetflixRecurringTransaction(user, account, OffsetDateTime.now());
+    RecurringTransaction recurringTransaction = buildRecurringTransaction(
+      user,
+      account,
+      NETFLIX_DESCRIPTION,
+      NETFLIX_AMOUNT,
+      NETFLIX_DAY_OF_MONTH,
+      OffsetDateTime.now()
+    );
     recurringTransactionRepository.save(recurringTransaction);
   }
 
-  public RecurringTransactionResponse getRecurringNetflixWithdrawal() {
+  public List<RecurringTransactionResponse> getRecurringTransactions() {
     Long currentUserId = authServiceHelper.getCurrentUserId();
 
-    return recurringTransactionRepository.findByUserId(currentUserId)
+    return recurringTransactionRepository.findAllByUserIdOrderByCreatedAtAsc(currentUserId)
+      .stream()
       .map(this::mapToResponse)
-      .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recurring Netflix withdrawal not found"));
+      .toList();
   }
 
   @Transactional
-  public void deleteRecurringNetflixWithdrawal() {
+  public void deleteRecurringTransaction(Long recurringTransactionId) {
     Long currentUserId = authServiceHelper.getCurrentUserId();
-    RecurringTransaction recurringTransaction = recurringTransactionRepository.findByUserId(currentUserId)
-      .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recurring Netflix withdrawal not found"));
+    RecurringTransaction recurringTransaction = recurringTransactionRepository.findById(recurringTransactionId)
+      .filter(transaction -> transaction.getUser().getId().equals(currentUserId))
+      .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recurring transaction not found"));
 
     recurringTransactionRepository.delete(recurringTransaction);
   }
@@ -120,54 +135,59 @@ public class RecurringTransactionService {
       return;
     }
 
-    if (account.getBalance().compareTo(NETFLIX_AMOUNT) >= 0) {
+    if (account.getBalance().compareTo(recurringTransaction.getAmount()) >= 0) {
       transactionService.createTransactionForAccount(
         account,
         TransactionType.WITHDRAWAL,
-        NETFLIX_AMOUNT,
-        NETFLIX_DESCRIPTION
+        recurringTransaction.getAmount(),
+        recurringTransaction.getDescription()
       );
     }
 
-    recurringTransaction.setNextRunAt(calculateNextRunAtAfter(recurringTransaction.getNextRunAt()));
+    recurringTransaction.setNextRunAt(calculateNextRunAtAfter(recurringTransaction.getNextRunAt(), recurringTransaction.getDayOfMonth()));
     recurringTransactionRepository.save(recurringTransaction);
   }
 
-  private Account findCheckingAccountForUser(Long userId) {
-    return accountRepository.findByUserId(userId)
-      .stream()
-      .filter(account -> AccountType.CHECKING.equals(account.getType()))
-      .findFirst()
-      .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Checking account not found"));
+  private Account findAccountForUser(Long userId, Long accountId) {
+    return accountRepository.findById(accountId)
+      .filter(account -> account.getUser().getId().equals(userId))
+      .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Account not found"));
   }
 
-  private RecurringTransaction buildNetflixRecurringTransaction(User user, Account account, OffsetDateTime now) {
+  private RecurringTransaction buildRecurringTransaction(
+    User user,
+    Account account,
+    String description,
+    BigDecimal amount,
+    Integer dayOfMonth,
+    OffsetDateTime now
+  ) {
     return new RecurringTransaction(
       user,
       account,
-      NETFLIX_DESCRIPTION,
-      NETFLIX_AMOUNT,
-      NETFLIX_DAY_OF_MONTH,
-      calculateNextRunAt(now)
+      description,
+      amount,
+      dayOfMonth,
+      calculateNextRunAt(now, dayOfMonth)
     );
   }
 
-  private OffsetDateTime calculateNextRunAt(OffsetDateTime now) {
-    OffsetDateTime scheduledThisMonth = now.withDayOfMonth(NETFLIX_DAY_OF_MONTH)
+  private OffsetDateTime calculateNextRunAt(OffsetDateTime now, int dayOfMonth) {
+    OffsetDateTime scheduledThisMonth = now.withDayOfMonth(dayOfMonth)
       .withHour(0)
       .withMinute(0)
       .withSecond(0)
       .withNano(0);
 
-    if (now.getDayOfMonth() <= NETFLIX_DAY_OF_MONTH) {
+    if (now.getDayOfMonth() <= dayOfMonth) {
       return scheduledThisMonth;
     }
 
     return scheduledThisMonth.plusMonths(1);
   }
 
-  private OffsetDateTime calculateNextRunAtAfter(OffsetDateTime currentNextRunAt) {
-    return currentNextRunAt.plusMonths(1);
+  private OffsetDateTime calculateNextRunAtAfter(OffsetDateTime currentNextRunAt, int dayOfMonth) {
+    return currentNextRunAt.plusMonths(1).withDayOfMonth(dayOfMonth);
   }
 
   private UpcomingRecurringTransactionResponse mapToUpcomingResponse(RecurringTransaction recurringTransaction, LocalDate today) {
