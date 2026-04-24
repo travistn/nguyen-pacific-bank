@@ -67,7 +67,7 @@ class AuthServiceIntegrationTest {
       .extracting(account -> account.getUser().getId())
       .containsOnly(savedUser.getId());
 
-    RecurringTransaction recurringTransaction = recurringTransactionRepository.findByUserId(savedUser.getId()).orElseThrow();
+    RecurringTransaction recurringTransaction = recurringTransactionRepository.findAllByUserId(savedUser.getId()).getFirst();
     assertThat(recurringTransaction.getDescription()).isEqualTo("Netflix");
     assertThat(recurringTransaction.getAmount()).isEqualByComparingTo("20.00");
     assertThat(recurringTransaction.getDayOfMonth()).isEqualTo(20);

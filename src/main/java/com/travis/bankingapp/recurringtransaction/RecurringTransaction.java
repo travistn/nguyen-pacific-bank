@@ -16,7 +16,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,8 +32,8 @@ public class RecurringTransaction {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @OneToOne(optional = false)
-  @JoinColumn(name = "user_id", nullable = false, unique = true)
+  @ManyToOne(optional = false)
+  @JoinColumn(name = "user_id", nullable = false)
   private User user;
 
   @ManyToOne(optional = false)
